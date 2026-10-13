@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>雲端圖床連結轉換</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f4f2ec;
+    --surface: #fffefb;
+    --ink: #1f1d1a;
+    --muted: #6f6a61;
+    --line: #dedacf;
+    --accent: #0b6b5f;
+    --accent-ink: #ffffff;
+    --ok: #1a7f4b;
+    --bad: #b3372c;
+    --code-bg: #f0ede5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161715;
+      --surface: #1f211e;
+      --ink: #eceae4;
+      --muted: #9d9a90;
+      --line: #32352f;
+      --accent: #58c9b6;
+      --accent-ink: #0d1a17;
+      --ok: #6bd39a;
+      --bad: #f08a7e;
+      --code-bg: #262925;
+    }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.6 "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+  }
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 20px 64px;
+    display: grid;
+    gap: 20px;
+  }
+  header h1 { margin: 0 0 4px; font-size: 1.6rem; letter-spacing: .02em; }
+  header p { margin: 0; color: var(--muted); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .card-head h2, .card-head label { margin: 0; font-size: 1rem; font-weight: 600; }
+  .card-head .summary { flex: 1; font-size: .85rem; color: var(--muted); }
+  .card-head .push { margin-left: auto; }
+
+  textarea {
+    display: block;
+    width: 100%;
+    font: 13px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace;
+    color: inherit;
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    resize: vertical;
+  }
+  textarea:focus-visible, input[type="number"]:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .hint { margin: 8px 0 0; font-size: .85rem; color: var(--muted); }
+
+  button {
+    font: inherit;
+    font-size: .9rem;
+    color: inherit;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 5px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  button:disabled { opacity: .5; cursor: default; }
+
+  .options { display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: flex-end; }
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  legend { padding: 0; margin-bottom: 6px; font-size: .85rem; color: var(--muted); }
+  .seg-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .seg {
+    display: inline-flex;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .seg label { position: relative; cursor: pointer; }
+  .seg input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .seg span { display: block; padding: 5px 14px; font-size: .9rem; }
+  .seg label + label span { border-left: 1px solid var(--line); }
+  .seg input:checked + span { background: var(--accent); color: var(--accent-ink); }
+  .seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .width-field { font-size: .9rem; color: var(--muted); }
+  .width-field input {
+    width: 5.5em;
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 4px 8px;
+  }
+
+  .warn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 8px 12px;
+    font-size: .9rem;
+    color: var(--bad);
+    border: 1px solid var(--bad);
+    border-radius: 8px;
+  }
+  .warn[hidden] { display: none; }
+  .warn span { flex: 1; }
+
+  #list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+  .row {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .row.error { grid-template-columns: minmax(0, 1fr); padding: 8px 12px; }
+  .thumb {
+    width: 56px;
+    height: 56px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    color: var(--muted);
+    background: var(--code-bg);
+    border-radius: 6px;
+  }
+  .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: .85rem; }
+  .meta .alt { font-weight: 600; }
+  .state { color: var(--muted); }
+  .state[data-state="ok"] { color: var(--ok); }
+  .state[data-state="fail"], .row.error .reason { color: var(--bad); }
+  .row code {
+    display: block;
+    font: 12px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+
+  details { font-size: .9rem; color: var(--muted); }
+  details summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+  details ol { margin: 10px 0; padding-left: 1.4em; }
+  details p { margin: 10px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>雲端圖床連結轉換</h1>
+    <p>把 Google Drive 的分享連結轉成可以直接放進網頁或 Markdown 的圖片網址。</p>
+  </header>
+
+  <section class="card">
+    <div class="card-head">
+      <label for="input">貼上分享連結</label>
+      <button type="button" id="clear" class="push">清空</button>
+    </div>
+    <textarea id="input" rows="6" spellcheck="false" placeholder="https://drive.google.com/file/d/檔案ID/view?usp=sharing&#10;角色立繪 https://drive.google.com/file/d/檔案ID/view"></textarea>
+    <p class="hint">一行一個連結。同一行裡連結以外的文字會當成圖片說明（alt）。</p>
+  </section>
+
+  <section class="options">
+    <fieldset>
+      <legend>輸出格式</legend>
+      <div class="seg">
+        <label><input type="radio" name="format" value="html" checked><span>HTML</span></label>
+        <label><input type="radio" name="format" value="md"><span>Markdown</span></label>
+        <label><input type="radio" name="format" value="url"><span>純網址</span></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>圖片尺寸</legend>
+      <div class="seg-line">
+        <div class="seg">
+          <label><input type="radio" name="size" value="original" checked><span>原始尺寸</span></label>
+          <label><input type="radio" name="size" value="width"><span>指定寬度</span></label>
+        </div>
+        <label class="width-field" id="width-field" hidden>
+          <input type="number" id="width" min="1" step="1" value="1200"> px
+        </label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>網址形式</legend>
+      <div class="seg">
+        <label><input type="radio" name="form" value="lh3" checked><span>lh3.googleusercontent.com</span></label>
+        <label><input type="radio" name="form" value="thumbnail"><span>drive.google.com/thumbnail</span></label>
+      </div>
+    </fieldset>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>轉換結果</h2>
+      <span class="summary" id="summary" aria-live="polite"></span>
+      <button type="button" id="copy-all" class="primary" disabled>複製全部</button>
+    </div>
+    <textarea id="output" rows="3" readonly wrap="off" spellcheck="false" placeholder="貼上連結後，結果會出現在這裡。"></textarea>
+    <div class="warn" id="warn" hidden>
+      <span id="warn-text"></span>
+      <button type="button" id="recheck">重新檢查</button>
+    </div>
+    <ul id="list"></ul>
+  </section>
+
+  <details>
+    <summary>使用前的設定與限制</summary>
+    <ol>
+      <li>在 Google Drive 對圖片按右鍵，選「共用」，把「一般存取權」改成「知道連結的任何人」。沒改的話，別人看到的會是破圖。</li>
+      <li>按「複製連結」，貼到上面的輸入框。</li>
+      <li>縮圖能顯示，代表這個檔案目前可以公開讀取。想再確認一次，把轉出來的網址貼到無痕視窗開啟。</li>
+    </ol>
+    <p>Google Drive 沒有提供正式的圖床服務，這些網址借用的是 Drive 的圖片預覽功能。短時間內讀取次數太多時，Google 會暫時擋掉，圖片會變成破圖。個人網站、設定集這類用量通常夠用，流量大的網站請改用正式的圖床。</p>
+  </details>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const els = {
+    input: $('input'), output: $('output'), list: $('list'), summary: $('summary'),
+    warn: $('warn'), warnText: $('warn-text'), recheck: $('recheck'),
+    copyAll: $('copy-all'), clear: $('clear'), width: $('width'), widthField: $('width-field'),
+  };
+
+  const STORE_KEY = 'drive-image-links:options';
+  const DEFAULTS = { format: 'html', size: 'original', width: 1200, form: 'lh3' };
+  const STATE_TEXT = { pending: '檢查中', ok: '可顯示', fail: '無法載入' };
+  const URL_RE = /https?:\/\/[^\s<>"'`()\]，。、；「」（）]+/g;
+  const SEPARATORS = /^[\s|,，、:：;；]+|[\s|,，、:：;；]+$/g;
+
+  // 每個檔案 ID 的縮圖載入結果，重新渲染時沿用，失敗的不再重複請求
+  const states = new Map();
+  let items = [];
+
+  function parseDriveUrl(raw) {
+    let u;
+    try { u = new URL(raw); } catch { return { error: '網址格式不完整' }; }
+    if (!/(^|\.)(google\.com|googleusercontent\.com)$/.test(u.hostname)) {
+      return { error: '不是 Google Drive 的連結' };
+    }
+    if (/\/folders\//.test(u.pathname)) {
+      return { error: '這是資料夾連結，請改貼圖片檔案的連結' };
+    }
+    if (/^\/(document|spreadsheets|presentation|forms)\//.test(u.pathname)) {
+      return { error: '這是 Google 文件，不是圖片檔' };
+    }
+    const m = u.pathname.match(/\/d\/([\w-]{10,})/);
+    const id = m ? m[1] : u.searchParams.get('id');
+    return id && /^[\w-]{10,}$/.test(id) ? { id } : { error: '找不到檔案 ID' };
+  }
+
+  // 連結以外的文字當成 alt；整行若是舊的 <img> 或 ![]() 語法，沿用裡面原本的說明
+  function altFrom(rest) {
+    const md = rest.match(/!?\[(.*)\]\(\s*\)/);
+    if (md) return md[1].replace(/\\([\\[\]])/g, '$1').trim();
+    if (rest.includes('<')) {
+      const m = rest.match(/alt\s*=\s*["']([^"']*)["']/i);
+      return m ? m[1].trim() : '';
+    }
+    return rest.replace(SEPARATORS, '');
+  }
+
+  function parseInput(text) {
+    const out = [];
+    text.split(/\r?\n/).forEach((line, i) => {
+      const src = line.trim();
+      if (!src) return;
+      const urls = src.match(URL_RE);
+      if (!urls) {
+        if (/^[\w-]{25,}$/.test(src)) out.push({ line: i + 1, source: src, alt: '', id: src });
+        else out.push({ line: i + 1, source: src, error: '這一行沒有連結' });
+        return;
+      }
+      const alt = urls.length === 1 ? altFrom(src.replace(urls[0], '')) : '';
+      urls.forEach((raw) => out.push({ line: i + 1, source: raw, alt, ...parseDriveUrl(raw) }));
+    });
+    return out;
+  }
+
+  function directUrl(id, opts) {
+    const size = opts.size === 'width' ? `w${opts.width}` : 's0';
+    return opts.form === 'thumbnail'
+      ? `https://drive.google.com/thumbnail?id=${id}&sz=${size}`
+      : `https://lh3.googleusercontent.com/d/${id}=${size}`;
+  }
+
+  const escAttr = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const FORMATS = {
+    url: (url) => url,
+    html: (url, alt) => `<img src="${escAttr(url)}" alt="${escAttr(alt)}" referrerpolicy="no-referrer">`,
+    md: (url, alt) => `![${alt.replace(/[\\[\]]/g, '\\$&')}](${url})`,
+  };
+
+  function readOptions() {
+    const pick = (name) => document.querySelector(`input[name="${name}"]:checked`).value;
+    const width = Math.round(Number(els.width.value));
+    return {
+      format: pick('format'),
+      size: pick('size'),
+      form: pick('form'),
+      width: width >= 1 ? width : DEFAULTS.width,
+    };
+  }
+
+  function loadOptions() {
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch {}
+    const opts = { ...DEFAULTS, ...saved };
+    for (const name of ['format', 'size', 'form']) {
+      const radio = document.querySelector(`input[name="${name}"][value="${CSS.escape(String(opts[name]))}"]`);
+      if (radio) radio.checked = true;
+    }
+    els.width.value = opts.width;
+  }
+
+  function saveOptions(opts) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(opts)); } catch {}
+  }
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function paintState(li) {
+    const state = states.get(li.dataset.id) || 'pending';
+    const badge = li.querySelector('.state');
+    badge.dataset.state = state;
+    badge.textContent = STATE_TEXT[state];
+    if (state === 'fail') li.querySelector('.thumb').replaceChildren('✕');
+  }
+
+  function setState(id, state) {
+    if (states.get(id) === state) return;
+    states.set(id, state);
+    els.list.querySelectorAll(`[data-id="${CSS.escape(id)}"]`).forEach(paintState);
+    updateWarn();
+  }
+
+  function updateWarn() {
+    const ids = new Set(items.filter((it) => it.id).map((it) => it.id));
+    const failed = [...ids].filter((id) => states.get(id) === 'fail').length;
+    els.warn.hidden = failed === 0;
+    els.warnText.textContent = `有 ${failed} 張圖片無法載入。請確認檔案的共用設定是「知道連結的任何人」，而且檔案是圖片。`;
+  }
+
+  function okRow(item, line) {
+    const li = el('li', 'row');
+    li.dataset.id = item.id;
+
+    const thumb = el('div', 'thumb');
+    if (states.get(item.id) !== 'fail') {
+      const img = new Image();
+      img.referrerPolicy = 'no-referrer';
+      img.alt = '';
+      img.onload = () => setState(item.id, 'ok');
+      img.onerror = () => setState(item.id, 'fail');
+      img.src = `https://lh3.googleusercontent.com/d/${item.id}=w160`;
+      thumb.append(img);
+    }
+
+    const body = el('div');
+    const meta = el('div', 'meta');
+    if (item.alt) meta.append(el('span', 'alt', item.alt));
+    meta.append(el('span', 'state'));
+    body.append(meta, el('code', '', line));
+
+    const copy = el('button', '', '複製');
+    copy.type = 'button';
+    copy.addEventListener('click', () => copyText(line, copy));
+
+    li.append(thumb, body, copy);
+    paintState(li);
+    return li;
+  }
+
+  function errorRow(item) {
+    const li = el('li', 'row error');
+    const body = el('div');
+    const meta = el('div', 'meta');
+    meta.append(el('span', 'alt', `第 ${item.line} 行`), el('span', 'reason', item.error));
+    body.append(meta, el('code', '', item.source));
+    li.append(body);
+    return li;
+  }
+
+  function render() {
+    const opts = readOptions();
+    els.widthField.hidden = opts.size !== 'width';
+
+    items = parseInput(els.input.value);
+    const lines = [];
+    const rows = items.map((item) => {
+      if (!item.id) return errorRow(item);
+      const line = FORMATS[opts.format](directUrl(item.id, opts), item.alt);
+      lines.push(line);
+      return okRow(item, line);
+    });
+
+    els.output.value = lines.join('\n');
+    els.output.rows = Math.min(Math.max(lines.length, 3), 12);
+    els.copyAll.disabled = lines.length === 0;
+    els.list.replaceChildren(...rows);
+
+    const bad = items.length - lines.length;
+    els.summary.textContent = items.length
+      ? `已轉換 ${lines.length} 個連結` + (bad ? `，${bad} 個無法轉換` : '')
+      : '';
+    updateWarn();
+  }
+
+  async function copyText(text, button) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const box = el('textarea');
+      box.value = text;
+      document.body.append(box);
+      box.select();
+      document.execCommand('copy');
+      box.remove();
+    }
+    const label = button.dataset.label || (button.dataset.label = button.textContent);
+    button.textContent = '已複製';
+    clearTimeout(button._timer);
+    button._timer = setTimeout(() => { button.textContent = label; }, 1200);
+  }
+
+  let timer;
+  els.input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(render, 150);
+  });
+  document.querySelector('.options').addEventListener('input', () => {
+    render();
+    saveOptions(readOptions());
+  });
+  els.copyAll.addEventListener('click', () => copyText(els.output.value, els.copyAll));
+  els.clear.addEventListener('click', () => {
+    els.input.value = '';
+    render();
+    els.input.focus();
+  });
+  els.recheck.addEventListener('click', () => {
+    states.clear();
+    render();
+  });
+
+  loadOptions();
+  render();
+})();
+</script>
+</body>
+</html>
