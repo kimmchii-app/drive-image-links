@@ -2,7 +2,9 @@
 
 把 Google Drive 的分享連結轉成可以直接放進網頁或 Markdown 的圖片網址。
 
-整個工具只有一個 `index.html`，用瀏覽器開啟就能用，不用安裝，也不用登入 Google 帳號。
+線上版：<https://kimmchii-app.github.io/drive-image-links/>
+
+整個工具只有一個 `index.html`，下載後用瀏覽器開啟也能用，不用安裝，也不用登入 Google 帳號。
 
 ## 功能
 
